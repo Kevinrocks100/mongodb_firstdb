@@ -1,14 +1,19 @@
 # ---- YOUR APP STARTS HERE ----
 # -- Import section --
 from flask import Flask
-from flask import render_template
+from flask import render_template, redirect
 from flask import request
-# from flask_pymongo import PyMongo
+from flask_pymongo import PyMongo
+import os
 
+## to use ObjectId
+from bson.objectid import ObjectId
 
 # -- Initialization section --
 app = Flask(__name__)
 
+# the following dictionary is used for testing, and can be 
+# commented out once mongo is created
 events = [
         {"event":"First Day of Classes", "date":"2019-08-21"},
         {"event":"Winter Break", "date":"2019-12-20"},
@@ -16,12 +21,20 @@ events = [
     ]
 
 # name of database
-# app.config['MONGO_DBNAME'] = 'database-name'
+app.config['MONGO_DBNAME'] = os.getenv('DBNAME')
+DBNAME = app.config['MONGO_DBNAME']
+
+app.config['USER'] = os.getenv('DBUSER')
+USER = app.config['USER']
+
+app.config['MONGO_PWD'] = os.getenv('DBPWD')
+PWD = app.config['MONGO_PWD']
 
 # URI of database
-# app.config['MONGO_URI'] = 'mongo-uri'
+app.config['MONGO_URI'] = f"mongodb+srv://{USER}:{PWD}@cluster0.vmzkd.mongodb.net/{DBNAME}?retryWrites=true&w=majority"
 
-# mongo = PyMongo(app)
+
+mongo = PyMongo(app)
 
 # -- Routes section --
 # INDEX
@@ -30,17 +43,32 @@ events = [
 @app.route('/index')
 
 def index():
-    return render_template('index.html', events = events)
+    collection = mongo.db.events
+    events = collection.find({})
+    return render_template('index.html', events=events)
 
+# DISPLAY THE FORM
+@app.route('/displayform')
+def display_form():
+    return render_template('form.html')
 
 # CONNECT TO DB, ADD DATA
+@app.route('/events/new', methods=['GET', 'POST'])
+def new_event():
+    if request.method == "GET":
+        return render_template('new_event.html')
+    else:
+        print(request.form)
+        event_name = request.form['event_name']
+        event_date = request.form['event_date']
+        user_name = request.form['user_name']
 
-@app.route('/add')
+        # get the collection you want to use
+        collection = mongo.db.events
 
-def add():
-    # connect to the database
+        # insert the new data
+        collection.insert({'event': event_name, 'date': event_date, 'user': user_name})
 
-    # insert new data
-
-    # return a message to the user
-    return ""
+        # Make sure redirect has been imported from flask
+        # redirect sends you to the route in the parentheses
+        return redirect('/')
